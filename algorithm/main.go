@@ -1,8 +1,8 @@
 package main
 
 import (
-	"algorithm/set"
 	"fmt"
+	"github.com/merlinvn/sample_go/algorithm/set"
 )
 
 func main() {

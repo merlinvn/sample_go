@@ -1,5 +1,4 @@
-package set_test
-
+package test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

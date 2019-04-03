@@ -1,12 +1,12 @@
-package set_test
+package test
 
 import (
-	Set "algorithm/set"
+	Set "github.com/merlinvn/sample_go/algorithm/set"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Set", func() {
+var _ = Describe("Set Suite", func() {
 
 	var (
 		mySet *Set.HashSet
