@@ -4,17 +4,25 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"golang.org/x/net/context/ctxhttp"
 	"golang.org/x/oauth2"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 )
 
 type Client struct {
-	baseURL   *url.URL
-	userAgent string
+	baseURL *url.URL
+	client  *http.Client
+}
 
-	client *http.Client
+type RequestHeader struct {
+	ContentType string
+	Accept      string
+	UserAgent   string
 }
 
 func (client *Client) SetBaseUrl(urlString string) error {
@@ -49,7 +57,7 @@ func newClient(httpClient *http.Client, baseURL string) *Client {
 	return c
 }
 
-func (client *Client) NewRequest(method, urlString string, body interface{}) (*http.Request, error) {
+func (client *Client) NewRequest(method string, header *RequestHeader, urlString string, body interface{}) (*http.Request, error) {
 	rel, err := url.Parse(urlString)
 
 	if err != nil {
@@ -69,13 +77,91 @@ func (client *Client) NewRequest(method, urlString string, body interface{}) (*h
 		return nil, err
 	}
 
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	req.Header.Set("Accept", acceptVersionHeader)
+	setHeader(req, header, body)
 
 	return req, nil
 
+}
+
+func deferClose(c io.Closer) {
+	if err := c.Close(); err != nil {
+		log.Println(err)
+	}
+}
+
+func (client *Client) Do(ctx context.Context, req *http.Request, v interface{}) (*http.Response, error) {
+	resp, err := ctxhttp.Do(ctx, client.client, req)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer deferClose(resp.Body)
+
+	err = CheckResponse(resp)
+
+	if err != nil {
+		return nil, err
+	}
+
+	switch v.(type) {
+	case *interface{}:
+		data, err := ioutil.ReadAll(resp.Body)
+		if err == nil && data != nil {
+			err := json.Unmarshal(data, v)
+			if err != nil {
+				return nil, err
+			}
+		}
+	default:
+		err = json.NewDecoder(resp.Body).Decode(v)
+	}
+
+	return resp, err
+}
+
+type ErrorResponse struct {
+	*http.Response
+	Message string `json:"message"`
+}
+
+func (er *ErrorResponse) Error() string {
+	return fmt.Sprintf("%v %v: %d %v", er.Response.Request.Method, er.Response.Request.URL.Path, er.StatusCode, er.Message)
+}
+
+func CheckResponse(response *http.Response) error {
+	if response.StatusCode < 300 {
+		return nil
+	}
+
+	errorResponse := &ErrorResponse{Response: response}
+	data, err := ioutil.ReadAll(response.Body)
+	if err == nil && data == nil {
+		err := json.Unmarshal(data, errorResponse)
+		if err != nil {
+			return err
+		}
+	}
+
+	return errorResponse
+}
+
+func setHeader(req *http.Request, header *RequestHeader, body interface{}) {
+	if header == nil {
+		return
+	}
+
+	if body != nil {
+		checkAndSetHeaderValue(req, "Content-Type", header.ContentType)
+	}
+	checkAndSetHeaderValue(req, "Accept", header.Accept)
+	checkAndSetHeaderValue(req, "User-Agent", header.UserAgent)
+}
+
+func checkAndSetHeaderValue(req *http.Request, headerKey string, headerValue string, ) {
+	if headerValue != "" {
+		req.Header.Set(headerKey, headerValue)
+	}
 }
 
 func (client *Client) encodeBody(body interface{}) (io.ReadWriter, error) {

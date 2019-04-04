@@ -83,7 +83,7 @@ func (client *Client) NewRequest(method, urlString string, body interface{}) (*h
 
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", c.UserAgent)
+		//req.Header.Set("User-Agent", c.UserAgent)
 
 	}
 	req.Header.Set("Accept", acceptVersionHeader)
@@ -161,9 +161,7 @@ func (client *Client) encodeBody(body interface{}) (io.ReadWriter, error) {
 
 func (client *Client) decodeResponse(body io.ReadCloser, v interface{}) error {
 	if v != nil {
-		var err error
-		err = json.NewDecoder(body).Decode(v)
-
+		err := json.NewDecoder(body).Decode(v)
 		return err
 	}
 
