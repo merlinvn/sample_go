@@ -83,6 +83,8 @@ func (client *Client) NewRequest(method, urlString string, body interface{}) (*h
 
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", c.UserAgent)
+
 	}
 	req.Header.Set("Accept", acceptVersionHeader)
 
